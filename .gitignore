@@ -1,9 +1,30 @@
+# Python / FastAPI
 venv/
+.venv/
 __pycache__/
 *.pyc
-.DS_Store
-data/documents.db
-data/
+*.pyo
+*.pyd
+
+# React + Vite
 node_modules/
 dist/
+build/
+
+# Env / secrets
 .env
+*.env
+
+# ML model files (large/binary)
+*.pkl
+*.joblib
+*.h5
+*.onnx
+*.pt
+*.pth
+*.weights
+*.ckpt
+
+# System files
+.DS_Store
+Thumbs.db

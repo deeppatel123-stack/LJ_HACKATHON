@@ -99,6 +99,75 @@ def get_documents_by_role(role: str):
     conn.close()
     return documents
 
+def get_document_by_id(doc_id: int):
+    """Retrieves a single document by its ID."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    c = conn.cursor()
+    c.execute("SELECT * FROM documents WHERE id = ?", (doc_id,))
+    document = c.fetchone()
+    conn.close()
+    return document
+
+def delete_document(doc_id: int):
+    """Deletes a document by its ID."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    c = conn.cursor()
+    c.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+    deleted_rows = c.rowcount
+    conn.commit()
+    conn.close()
+    return deleted_rows > 0
+
+def cleanup_invalid_documents():
+    """Removes documents with invalid or null upload dates from the database."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    c = conn.cursor()
+    
+    # First, let's see what we have
+    c.execute("SELECT id, filename, upload_date FROM documents")
+    all_docs = c.fetchall()
+    print(f"Found {len(all_docs)} total documents")
+    
+    # Delete documents with null, empty, or invalid upload_date
+    c.execute("""
+        DELETE FROM documents 
+        WHERE upload_date IS NULL 
+        OR upload_date = '' 
+        OR upload_date = 'None'
+        OR upload_date LIKE '%-%-%T%:%:%'
+        OR LENGTH(upload_date) < 10
+        OR upload_date NOT LIKE '%202%'
+    """)
+    
+    deleted_count = c.rowcount
+    conn.commit()
+    
+    # Check remaining documents
+    c.execute("SELECT id, filename, upload_date FROM documents")
+    remaining_docs = c.fetchall()
+    print(f"Remaining {len(remaining_docs)} documents after cleanup")
+    
+    conn.close()
+    
+    print(f"Cleaned up {deleted_count} documents with invalid dates")
+    return deleted_count
+
+def force_cleanup_all_documents():
+    """Force delete ALL existing documents to start fresh."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    c = conn.cursor()
+    
+    c.execute("SELECT COUNT(*) FROM documents")
+    total_count = c.fetchone()[0]
+    
+    c.execute("DELETE FROM documents")
+    deleted_count = c.rowcount
+    conn.commit()
+    conn.close()
+    
+    print(f"Force deleted all {deleted_count} documents from database")
+    return deleted_count
+
 def log_access(username: str, action: str, doc_id: int = None):
     """Logs user actions (uploads, views) to the access logs table."""
     conn = sqlite3.connect(DATABASE_FILE)
@@ -109,7 +178,7 @@ def log_access(username: str, action: str, doc_id: int = None):
     ''', (action, username, doc_id))
     conn.commit()
     conn.close()
-    
+
 def register_user(username: str, password: str, role: str):
     """Registers a new user in the database."""
     conn = sqlite3.connect(DATABASE_FILE)
@@ -127,9 +196,14 @@ def register_user(username: str, password: str, role: str):
               (username, hashed_password, role))
     conn.commit()
     conn.close()
+    
     return {"message": "User registered successfully"}
+
+def run_cleanup():
+    cleanup_invalid_documents()
 
 # Temporary code to initialize database, remove after running once
 if __name__ == "__main__":
     init_db()
     print("Database initialized successfully.")
+    run_cleanup()

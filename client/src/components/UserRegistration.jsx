@@ -5,11 +5,19 @@ const API_BASE_URL = 'http://127.0.0.1:8002'; // or your port
 const UserRegistration = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('HR'); // Default role
+  const [role, setRole] = useState('HR');
+  const [registering, setRegistering] = useState(false);
   const [message, setMessage] = useState('');
 
-  const handleRegister = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!username || !password) {
+      setMessage('Please fill in all fields.');
+      return;
+    }
+
+    setRegistering(true);
     setMessage('');
 
     const formData = new FormData();
@@ -23,46 +31,92 @@ const UserRegistration = () => {
         body: formData,
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        setMessage(data.message);
+        const result = await response.json();
+        setMessage('Registration successful! You can now login.');
+        setUsername('');
+        setPassword('');
+        setRole('HR');
       } else {
-        setMessage(`Error: ${data.detail}`);
+        const errorData = await response.json();
+        setMessage(`Registration failed: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (error) {
-      setMessage('Network error. Failed to connect to server.', error );
+      setMessage(`Registration error: ${error.message}`);
+    } finally {
+      setRegistering(false);
     }
   };
 
   return (
-    <div className="registration-container">
-      <h3>Register a New User</h3>
-      <form onSubmit={handleRegister} className="registration-form">
+    <div className="auth-form">
+      <h2>Create Account</h2>
+      <p style={{textAlign: 'center', marginBottom: '1.5rem', color: '#666'}}>
+        Join the AI-Powered Document Hub
+      </p>
+      
+      <form onSubmit={handleSubmit}>
         <input
           type="text"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          required
+          className="auth-input"
+          disabled={registering}
         />
+        
         <input
           type="password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          required
+          className="auth-input"
+          disabled={registering}
         />
-        <select value={role} onChange={(e) => setRole(e.target.value)}>
-          <option value="HR">HR</option>
-          <option value="Finance">Finance</option>
-          <option value="Admin">Admin</option>
-          <option value="Legal">Legal</option>
-          {/* Add all your roles here */}
-        </select>
-        <button type="submit">Register</button>
+        
+        <div className="role-selection">
+          <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#333'}}>
+            Select Your Role:
+          </label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="auth-input"
+            disabled={registering}
+            style={{appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem'}}
+          >
+            <option value="HR">HR - Human Resources</option>
+            <option value="Finance">Finance - Financial Documents</option>
+            <option value="Legal">Legal - Legal Documents</option>
+            <option value="Admin">Admin - Full Access</option>
+          </select>
+        </div>
+        
+        <button 
+          type="submit" 
+          className="auth-button"
+          disabled={registering}
+        >
+          {registering ? (
+            <>
+              <span className="loading"></span>
+              Creating Account...
+            </>
+          ) : (
+            'Register'
+          )}
+        </button>
       </form>
-      {message && <p className="message">{message}</p>}
+
+      {message && (
+        <div className={`upload-message ${message.includes('successful') ? 'success-message' : 'error-message'}`}>
+          {message}
+        </div>
+      )}
+      
+      <div style={{marginTop: '1rem', textAlign: 'center', fontSize: '0.9rem', color: '#666'}}>
+        <p>Your account will have access to documents based on your selected role</p>
+      </div>
     </div>
   );
 };

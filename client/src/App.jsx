@@ -38,33 +38,102 @@ function App() {
 
   const fetchDocuments = async () => {
     try {
+      console.log('Fetching documents for user:', username);
+      console.log('API URL:', `${API_BASE_URL}/documents/?username=${username}&password=${password}`);
+      
       const response = await fetch(`${API_BASE_URL}/documents/?username=${username}&password=${password}`);
+      console.log('Fetch response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Fetched documents:', data);
         setDocuments(data);
         setFetchError('');
       } else {
-        setFetchError('Failed to fetch documents. Check your credentials.');
+        const errorText = await response.text();
+        console.error('Fetch failed:', response.status, errorText);
+        setFetchError(`Failed to fetch documents. Status: ${response.status}`);
         setDocuments([]);
       }
     } catch (error) {
+      console.error('Fetch error:', error);
       setFetchError('Error fetching documents: ' + error.message);
     }
   };
 
   const handleSearch = async (searchQuery) => {
     try {
+      console.log('Searching for:', searchQuery);
+      console.log('API URL:', `${API_BASE_URL}/search/?query=${searchQuery}&username=${username}&password=${password}`);
+      
       const response = await fetch(`${API_BASE_URL}/search/?query=${searchQuery}&username=${username}&password=${password}`);
+      console.log('Search response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Search results:', data);
         setDocuments(data);
         setFetchError('');
       } else {
-        setFetchError('Failed to search documents. Check your credentials.');
+        const errorText = await response.text();
+        console.error('Search failed:', response.status, errorText);
+        setFetchError(`Failed to search documents. Status: ${response.status}`);
         setDocuments([]);
       }
     } catch (error) {
+      console.error('Search error:', error);
       setFetchError('Error searching documents: ' + error.message);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      console.log('Deleting document:', id);
+      console.log('API URL:', `${API_BASE_URL}/documents/${id}/?username=${username}&password=${password}`);
+      
+      const response = await fetch(`${API_BASE_URL}/documents/${id}/?username=${username}&password=${password}`, {
+        method: 'DELETE',
+      });
+      console.log('Delete response status:', response.status);
+      
+      if (response.ok) {
+        console.log('Document deleted successfully');
+        fetchDocuments();
+      } else {
+        const errorText = await response.text();
+        console.error('Delete failed:', response.status, errorText);
+        setFetchError(`Failed to delete document. Status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      setFetchError('Error deleting document: ' + error.message);
+    }
+  };
+
+  const handleDeleteAllDocuments = async () => {
+    if (!window.confirm('This will delete ALL documents from the database. Are you sure?')) {
+      return;
+    }
+    
+    try {
+      console.log('Deleting all documents...');
+      const response = await fetch(`${API_BASE_URL}/force-cleanup-all-documents/?username=${username}&password=${password}`, {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Delete all successful:', result.message);
+        alert('All documents have been deleted successfully.');
+        fetchDocuments();
+      } else {
+        const errorText = await response.text();
+        console.error('Delete all failed:', response.status, errorText);
+        setFetchError(`Failed to delete all documents. Status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Delete all error:', error);
+      setFetchError('Error deleting all documents: ' + error.message);
     }
   };
 
@@ -115,9 +184,12 @@ function App() {
         <section className="section-controls">
           <SearchBar onSearch={handleSearch} />
           <button onClick={fetchDocuments} className="refresh-button">Refresh Documents</button>
+          {username === 'admin' && (
+            <button onClick={handleDeleteAllDocuments} className="delete-all-button">Delete All Documents</button>
+          )}
         </section>
         <section className="section-documents">
-          <DocumentList documents={documents} />
+          <DocumentList documents={documents} onDelete={handleDelete} />
         </section>
       </main>
       {fetchError && <p className="error-message">{fetchError}</p>}

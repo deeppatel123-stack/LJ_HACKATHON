@@ -6,22 +6,24 @@ const API_BASE_URL = 'http://127.0.0.1:8002';
 
 const DocumentUpload = ({ username, password, onUploadSuccess }) => {
   const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState('');
 
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+    const selectedFile = e.target.files[0];
+    setFile(selectedFile);
+    setUploadMessage('');
   };
 
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!file) {
-      setMessage('Please select a file to upload.');
+      setUploadMessage('Please select a file to upload.');
       return;
     }
 
-    setLoading(true);
-    setMessage('');
+    setUploading(true);
+    setUploadMessage('');
 
     const formData = new FormData();
     formData.append('file', file);
@@ -34,31 +36,68 @@ const DocumentUpload = ({ username, password, onUploadSuccess }) => {
         body: formData,
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        setMessage(`Success: ${data.message}`);
-        onUploadSuccess();
+        const result = await response.json();
+        setUploadMessage('Document uploaded and processed successfully!');
+        setFile(null);
+        // Reset file input
+        e.target.reset();
+        // Refresh documents list
+        if (onUploadSuccess) onUploadSuccess();
       } else {
-        setMessage(`Error: ${data.detail || 'Upload failed'}`);
+        const errorData = await response.json();
+        setUploadMessage(`Upload failed: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (error) {
-      setMessage('Error: Failed to connect to server.',error);
+      setUploadMessage(`Upload error: ${error.message}`);
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
   return (
     <div className="upload-container">
-      <h3>Upload a New Document</h3>
+      <h3>Upload Document</h3>
+      <p>Upload PDF, DOCX, or TXT files for automatic classification and indexing</p>
+      
       <form onSubmit={handleUpload}>
-        <input type="file" onChange={handleFileChange} />
-        <button type="submit" disabled={loading}>
-          {loading ? 'Uploading...' : 'Upload & Classify'}
+        <div className="file-input-wrapper">
+          <input
+            type="file"
+            accept=".pdf,.docx,.txt"
+            onChange={handleFileChange}
+            className="file-input"
+            disabled={uploading}
+          />
+          {file && (
+            <div className="file-preview">
+              <span>Selected: {file.name}</span>
+              <span className="file-size">({(file.size / 1024).toFixed(1)} KB)</span>
+            </div>
+          )}
+        </div>
+        
+        <button 
+          type="submit" 
+          className="upload-button"
+          disabled={uploading || !file}
+        >
+          {uploading ? (
+            <>
+              <span className="loading"></span>
+              Processing...
+            </>
+          ) : (
+            'Upload & Process'
+          )}
         </button>
       </form>
-      {message && <p className="message">{message}</p>}
+
+      {uploadMessage && (
+        <div className={`upload-message ${uploadMessage.includes('successfully') ? 'success-message' : 'error-message'}`}>
+          {uploadMessage}
+        </div>
+      )}
     </div>
   );
 };
