@@ -1,7 +1,7 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.event import on_event
 import os
 import shutil
 import datetime
@@ -16,24 +16,16 @@ from ml_models.search_engine import SemanticSearchEngine
 from ml_models.security_manager import SecurityManager
 
 # --- Initialize Core Components ---
-app = FastAPI()
 classifier = DocumentClassifier()
 search_engine = SemanticSearchEngine()
 security = SecurityManager()
 
-# Add CORS middleware to allow the frontend to access the API
-origins = ["http://localhost:5173"]  # URL of your Vite development server
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# --- Startup Event to Rebuild the In-Memory Index ---
-@app.on_event("startup")
-async def startup_event():
+# Define the lifespan event handler
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # This code runs on application startup
+    print("Application startup event triggered.")
+    
     # Ensure data directory and database exist
     if not os.path.exists('data'):
         os.makedirs('data')
@@ -41,7 +33,7 @@ async def startup_event():
     
     # Rebuild the FAISS index from the database
     print("Rebuilding in-memory search index...")
-    all_docs = get_documents_by_role("Admin") # Get all documents regardless of role
+    all_docs = get_documents_by_role("Admin")
     for doc in all_docs:
         try:
             doc_text = extract_text(doc[2])
@@ -50,6 +42,23 @@ async def startup_event():
             print(f"Error rebuilding index for document ID {doc[0]}: {e}")
             continue
     print("Search index rebuilt successfully.")
+    
+    yield # The application will run here
+    
+    # This code runs on application shutdown
+    print("Application shutdown event triggered.")
+
+app = FastAPI(lifespan=lifespan)
+
+# Add CORS middleware
+origins = ["http://localhost:5173"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- Security Dependencies ---
 def get_user_from_form(username: str = Form(...), password: str = Form(...)):
@@ -65,6 +74,11 @@ def get_user_from_query(username: str = Query(...), password: str = Query(...)):
     return user
 
 # --- API Endpoints ---
+
+@app.get("/")
+def read_root():
+    return {"message": "Document Classification API is running!"}
+
 @app.post("/upload/")
 async def upload_document(
     file: UploadFile = File(...),
@@ -137,7 +151,6 @@ async def semantic_search(
     """
     Performs a semantic search and returns relevant documents.
     """
-    # The search engine already has the full index from the startup event
     results = search_engine.search(query, top_k=5)
     
     log_access(current_user['username'], 'search', None)

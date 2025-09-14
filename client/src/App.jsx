@@ -1,6 +1,4 @@
-// client/src/App.jsx
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DocumentUpload from './components/DocumentUpload';
 import DocumentList from './components/DocumentList';
 import SearchBar from './components/SearchBar';
@@ -15,12 +13,19 @@ function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [fetchError, setFetchError] = useState('');
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchDocuments();
+    }
+  }, [isAuthenticated]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     if (username && password) {
+      // Assuming a successful login for now as we don't have a login endpoint
       setIsAuthenticated(true);
-      await fetchDocuments();
     }
   };
 
@@ -34,49 +39,65 @@ function App() {
   const fetchDocuments = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/documents/?username=${username}&password=${password}`);
-      const data = await response.json();
-      setDocuments(data);
+      if (response.ok) {
+        const data = await response.json();
+        setDocuments(data);
+        setFetchError('');
+      } else {
+        setFetchError('Failed to fetch documents. Check your credentials.');
+        setDocuments([]);
+      }
     } catch (error) {
-      console.error('Error fetching documents:', error);
+      setFetchError('Error fetching documents: ' + error.message);
     }
   };
 
   const handleSearch = async (searchQuery) => {
     try {
       const response = await fetch(`${API_BASE_URL}/search/?query=${searchQuery}&username=${username}&password=${password}`);
-      const data = await response.json();
-      setDocuments(data);
+      if (response.ok) {
+        const data = await response.json();
+        setDocuments(data);
+        setFetchError('');
+      } else {
+        setFetchError('Failed to search documents. Check your credentials.');
+        setDocuments([]);
+      }
     } catch (error) {
-      console.error('Error searching:', error);
+      setFetchError('Error searching documents: ' + error.message);
     }
   };
 
   if (!isAuthenticated) {
     return (
       <div className="auth-container">
+        <h1 className="main-title">AI-Powered Document Hub</h1>
         {isRegistering ? (
           <UserRegistration />
         ) : (
-          <form onSubmit={handleLogin} className="login-form">
-            <h2>Login to Document Hub</h2>
+          <form onSubmit={handleLogin} className="auth-form">
+            <h2>Login</h2>
             <input
               type="text"
               placeholder="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              className="auth-input"
             />
             <input
               type="password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="auth-input"
             />
-            <button type="submit">Login</button>
+            <button type="submit" className="auth-button">Login</button>
           </form>
         )}
-        <button onClick={() => setIsRegistering(!isRegistering)}>
+        <button onClick={() => setIsRegistering(!isRegistering)} className="toggle-auth-button">
           {isRegistering ? 'Back to Login' : 'Register a new user'}
         </button>
+        {fetchError && <p className="error-message">{fetchError}</p>}
       </div>
     );
   }
@@ -84,15 +105,22 @@ function App() {
   return (
     <div className="app-container">
       <header>
-        <h1>AI-Powered Document Hub</h1>
-        <button onClick={handleLogout}>Logout</button>
+        <h1 className="main-title">AI-Powered Document Hub</h1>
+        <button onClick={handleLogout} className="logout-button">Logout</button>
       </header>
-      <DocumentUpload username={username} password={password} onUploadSuccess={fetchDocuments} />
-      <div className="controls-container">
-        <SearchBar onSearch={handleSearch} />
-        <button onClick={fetchDocuments} className="refresh-button">Refresh Documents</button>
-      </div>
-      <DocumentList documents={documents} />
+      <main>
+        <section className="section-upload">
+          <DocumentUpload username={username} password={password} onUploadSuccess={fetchDocuments} />
+        </section>
+        <section className="section-controls">
+          <SearchBar onSearch={handleSearch} />
+          <button onClick={fetchDocuments} className="refresh-button">Refresh Documents</button>
+        </section>
+        <section className="section-documents">
+          <DocumentList documents={documents} />
+        </section>
+      </main>
+      {fetchError && <p className="error-message">{fetchError}</p>}
     </div>
   );
 }

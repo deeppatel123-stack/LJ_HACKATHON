@@ -9,7 +9,7 @@ def init_db():
     conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     
-    # Create documents table
+    # Create tables
     c.execute('''
         CREATE TABLE IF NOT EXISTS documents (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,7 +26,6 @@ def init_db():
         )
     ''')
     
-    # Create users table
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
             username TEXT PRIMARY KEY,
@@ -35,7 +34,6 @@ def init_db():
         )
     ''')
 
-    # Create access logs table
     c.execute('''
         CREATE TABLE IF NOT EXISTS access_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,7 +53,7 @@ def init_db():
     hashed_legal_pass = security.hash_password('legal_pass')
     hashed_marketing_pass = security.hash_password('marketing_pass')
     
-    # Insert hardcoded users with hashed passwords
+    # Insert hardcoded users
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", 
               ('hr_user', hashed_hr_pass, 'HR'))
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", 
@@ -111,22 +109,16 @@ def log_access(username: str, action: str, doc_id: int = None):
     ''', (action, username, doc_id))
     conn.commit()
     conn.close()
-
-# Temporary code to initialize database, remove after running once
-if __name__ == "__main__":
-    init_db()
-    print("Database initialized successfully.")
     
 def register_user(username: str, password: str, role: str):
     """Registers a new user in the database."""
     conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     
-    # Check if user already exists
     c.execute("SELECT username FROM users WHERE username = ?", (username,))
     if c.fetchone():
         conn.close()
-        return None  # User already exists
+        return None
     
     security = SecurityManager()
     hashed_password = security.hash_password(password)
@@ -136,3 +128,8 @@ def register_user(username: str, password: str, role: str):
     conn.commit()
     conn.close()
     return {"message": "User registered successfully"}
+
+# Temporary code to initialize database, remove after running once
+if __name__ == "__main__":
+    init_db()
+    print("Database initialized successfully.")
